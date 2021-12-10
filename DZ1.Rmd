@@ -54,40 +54,39 @@ pvalue
 qchisq(0.01,49) #statistika ne upada u kriticno podrucje
 ```
 
-## 2. zadatak
+## 2. zadatak - Test pripadnosti distribuciji
+
 ```{r}
-X = runif(30,0,1)
+X = runif(30,0,1) #nasumičan uzorak uniformne jedinične distribucije
 Y = X ** (1/3)
 
+# grafičkaprovjera dolazi li Y iz neke beta razdiobe
 library(fitdistrplus)
-fitdist(Y, "beta")#od tud čitam i procjenjene parametre
-plot(fitdist(Y, "beta"))#ovo mi je jako zgodno
+plot(fitdist(Y, "beta"))
 
 
-#library(EnvStats) #neki random paket za procjenu parametra
-#ebeta(Y, method="mle") #procjena parametra prema njemu je - 2.4803872 0.6489655 
-ks.test(Y, "pbeta",4.614183,1.221202)#ne odbacujem H_0, uzorak dolazi iz beta razdiobe
-#OVO TU PROMJENI! nije dobro!!! jer simulacije pa svaki put drugaciji parametri
+library(EnvStats) 
+ebeta(Y, method="mle")$parameters #procjena parametra 
+ks.test(Y, "pbeta",ebeta(Y, method="mle")$parameters[1],ebeta(Y, method="mle")$parameters[2])
+#ne odbacujem H_0, uzorak dolazi iz beta razdiobe
 
 #očekivanje i varijanca od Y
 mean(Y)
 var(Y)
 
-#drugi dio zadatka
+#transformacija uzorka
 Z = (3*Y) /(1-Y)
+
+#provjera pripada li Z F(2/3,2) distribuciji
 library(MASS)
-#fitdist(Z, "f",start = list(df1 = 2/3, df2 = 2))
-#plot(fitdist(Z, "f",start = list(df1 = 2/3, df2 = 2)))
 plotdist(Z, "f", para=list(df1 = 2/3, df2 = 2))
-#daje mi sve sto trebam, cak i bolje nego ono gore zbog skale na densityu
-#neka moja isprobavanja, from the scratch
+
+#drugi način
 xos <- seq(0,max(Z),0.1)
 hist(Z,probability = TRUE)
 lines(xos,df(xos,2/3,2),col="red")
 plot(ecdf(Z))
 curve(pf(x, df1 = 2/3, df2 = 2),  add=TRUE,col="red")
-
-
 ```
 
 
