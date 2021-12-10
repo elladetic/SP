@@ -1,0 +1,117 @@
+---
+title: "DZ1"
+author: "Eleonora Detić"
+date: "10/21/2021"
+output: pdf_document
+---
+
+
+```{r}
+library(ggplot2)
+library(qqplotr)
+```
+
+## 1. zadatak
+
+```{r}
+cauchy = c()
+beta = c()
+
+for(i in 1:50){
+  uzorak_c = rcauchy(25,0,2)
+  uzorak_b = rbeta(25,1,3)
+  
+  cauchy = c(cauchy, mean(uzorak_c))
+  beta = c(beta, mean(uzorak_b))
+  
+}
+
+
+# neki paket koji sam nasla a ucinio mi se zgodan
+#nauci svakak bolje interpretirati i tumaciti
+library(fitdistrplus)
+FITb <- fitdist(beta, "norm")    
+plot(FITb) 
+FITc <- fitdist(cauchy, "norm")    
+plot(FITc) 
+#funkcija gustoce, funkcija distr, qq plot i 
+
+##formalna procjena parametra pa ks test
+library(MASS)
+fitb <- fitdistr(beta, "normal")
+fitc <- fitdistr(cauchy, "normal")
+parab <- fitb$estimate
+parac <- fitc$estimate
+ks.test(cauchy, "pnorm", parac[1],parac[2]) #ovo nije normalno
+ks.test(beta, "pnorm",parab[1],parab[2]) #ovo ispada normalno
+#beta ima prvi moment, a cauchy nema -> fabijan kaze
+
+
+#ispitivanje normalnosti normalnim vjerojatnosnim grafom
+qqnorm(cauchy)
+qqline(cauchy)
+qqnorm(beta) #ovo je vise normalno?
+qqline(beta)
+
+
+#testiranje srednjekvadratnog odstupanja
+#koristim hi kvadrat test
+#H_0 -> sigma_0 = 0.5
+#H_1 -> sigma_0 > 0.5
+hi_kvadrat = ((50-1)/(0.5)**2 ) * var(beta) #testna statistika
+pvalue = 1 - pchisq(hi_kvadrat, 50-1) # 0.7413 veliki p, pa ne odbacujemo H_0
+pvalue
+#kriticno podrucje
+qchisq(0.01,49) #statistika ne upada u kriticno podrucje
+```
+
+## 2. zadatak
+```{r}
+X = runif(30,0,1)
+Y = X ** (1/3)
+
+library(fitdistrplus)
+fitdist(Y, "beta")#od tud čitam i procjenjene parametre
+plot(fitdist(Y, "beta"))#ovo mi je jako zgodno
+
+
+#library(EnvStats) #neki random paket za procjenu parametra
+#ebeta(Y, method="mle") #procjena parametra prema njemu je - 2.4803872 0.6489655 
+ks.test(Y, "pbeta",4.614183,1.221202)#ne odbacujem H_0, uzorak dolazi iz beta razdiobe
+#OVO TU PROMJENI! nije dobro!!! jer simulacije pa svaki put drugaciji parametri
+
+#očekivanje i varijanca od Y
+mean(Y)
+var(Y)
+
+#drugi dio zadatka
+Z = (3*Y) /(1-Y)
+library(MASS)
+#fitdist(Z, "f",start = list(df1 = 2/3, df2 = 2))
+#plot(fitdist(Z, "f",start = list(df1 = 2/3, df2 = 2)))
+plotdist(Z, "f", para=list(df1 = 2/3, df2 = 2))
+#daje mi sve sto trebam, cak i bolje nego ono gore zbog skale na densityu
+#neka moja isprobavanja, from the scratch
+xos <- seq(0,max(Z),0.1)
+hist(Z,probability = TRUE)
+lines(xos,df(xos,2/3,2),col="red")
+plot(ecdf(Z))
+curve(pf(x, df1 = 2/3, df2 = 2),  add=TRUE,col="red")
+
+
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+
+
+
+
+
+
+
+
