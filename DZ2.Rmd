@@ -9,43 +9,45 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Zadatak 3
+## Zadatak 3 - Cijena dionice
+
 ## a dio
 ```{r}
-#Grafičko testiranje ovisnosti
+#grafičko testiranje ovisnosti
 dionica = read.csv("dionica.csv") #učitavanje podataka
 par(mfrow=c(2,2)) 
 plot(dionica$BDP, dionica$Cijena, col="red")
-plot(dionica$ZAP, dionica$Cijena, col="blue") #ovo mi se cini kao zavisno
+plot(dionica$ZAP, dionica$Cijena, col="blue") #moguća zavisnost
 plot(dionica$KS, dionica$Cijena, col="green")
-plot(dionica$MJ, dionica$Cijena, col= "orange") #i ovo bi moglo proc pod zavisno?
+plot(dionica$MJ, dionica$Cijena, col= "orange") #moguća zavisnost
 
-## testiranje ovisnosti kroz model
+#testiranje ovisnosti kroz model
 model = lm(dionica$Cijena ~ dionica$BDP+dionica$ZAP+dionica$KS+dionica$MJ)
-summary(model) #vec tu vidim procjenu da mi je koef od dionice 200 i nest
-#dobar model, BDP nije ovisan
-#mali p value znaci da mi je model statisticki znacaj
+summary(model) 
+#mali p value - model statisticki značajan
+#ZAP zavisan najviše, MJ nakon njega, BDP nije tolko važan za cijenu
 ```
 ## b dio
 ```{r}
+#pouzdana pruga za srednju vrijednost
 plot(dionica$Cijena)
 matrica = predict(model, level=0.9, i="c") 
-#srednja vrijednost #i = "c" znaci confidence - interval pouzdanosti
 matrica = as.data.frame(matrica)
 plot(dionica$Cijena)
 lines(matrica$lwr, col="red") 
 lines(matrica$upr, col="red")
 ```
-### c dio
+## c dio
 ```{r}
+#testiranje da je koeficijent uz kamatna stopu 100
+
 model2 = lm(dionica$Cijena ~dionica$BDP+dionica$ZAP+ offset(100*dionica$KS)+dionica$MJ)
-#nisam sigurna jel ovo okej
-#tak nest slicno oni rade na prezentacijama
 anova(model2,model)
 #velika p vrijednost, ne odbacujemo nul hipotezu, znaci da je ovaj koeficijent 100
-```
-### d dio
 
+```
+
+## d dio
 ```{r}
 nove_dionice = read.csv("nova_cijena.csv") #učitavanje podataka
 novi_model = lm(nove_dionice$Cijena ~ nove_dionice$BDP+nove_dionice$ZAP+nove_dionice$KS+nove_dionice$MJ)
@@ -73,37 +75,50 @@ BIC(model)
 BIC(novi_model)
 #bolji model je ovaj novi
 ```
+
 ## e dio
 ```{r}
-#detekcija outlinera
+#uklananje točaka radi poboljšanja prediktivne vrijednosti
 library(base)
 
-#stari model
 distance = cooks.distance(model)
-length(distance[distance > 0.5]) #nema utjecajnih tocaka ?
-
-#novi model -> netreba gledati drugi model!
-distance = cooks.distance(novi_model)
 length(distance[distance > 0.5]) 
-# u starom modelu nema takvih tocaka, u novom su dvije 
+#nema utjecajnih tocaka 
 ```
 
 
 ### Zadatak 4
 
-# a dio
+## a dio
 ```{r}
-# a dio - jel ovdje x kao dan?
-prodaja = read.table("prodaja.dat", header=TRUE) #oprez, čitanje .dat file-ova
+prodaja = read.table("prodaja.dat", header=TRUE) 
 model = lm(prodaja$kolicina~prodaja$dan)
-#checkresiduals(model) #šta je ovo wtf
-
-# b dio
-plot.ts(prodaja$kolicina) #postoji trend i šum vrlo vjerojatno
-
+summary(model)
 ```
 
+## b dio - provjera pretpostavki linearnog modela
+```{r}
+#1.linearnost podataka
+res = resid(model)
+plot(prodaja$dan, res) 
+abline(a=0,b=0)
+#raspršenje oko apcise ukazuje na nelinearnost
 
+#2.nezavisnost grešaka
+library(lmtest)
+dwtest(model)
+#mala p vrijednost, odbacujemo null hipotezu 
+#nul hipoteza je da ne postoji korelacija 
+
+#3. homogenost greška
+
+#4. normalnost greška
+```
+
+## c dio
+```{r}
+
+```
 
 
 
