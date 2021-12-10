@@ -11,32 +11,30 @@ library(ggplot2)
 library(qqplotr)
 ```
 
-## 1. zadatak
+## 1. zadatak - Testiranje statističkih hipoteza
 
 ```{r}
-cauchy = c()
-beta = c()
-
+#kreiranje uzorka
+cauchy = c() #prazan vektor
+beta = c() 
 for(i in 1:50){
-  uzorak_c = rcauchy(25,0,2)
+  uzorak_c = rcauchy(25,0,2) #simuliranje uzorka
   uzorak_b = rbeta(25,1,3)
   
-  cauchy = c(cauchy, mean(uzorak_c))
+  cauchy = c(cauchy, mean(uzorak_c)) #kreiramo uzorak aritmetičkih sredina
   beta = c(beta, mean(uzorak_b))
   
 }
 
-
-# neki paket koji sam nasla a ucinio mi se zgodan
-#nauci svakak bolje interpretirati i tumaciti
+#grafičko testiranje dolaze li uzorci aritmetičkih sredina iz normalne razdiobe
+#drugi način pomoću qqnorm i qqline 
 library(fitdistrplus)
 FITb <- fitdist(beta, "norm")    
-plot(FITb) 
+plot(FITb) #bolje fitanje - čini se grafički više normalno
 FITc <- fitdist(cauchy, "norm")    
 plot(FITc) 
-#funkcija gustoce, funkcija distr, qq plot i 
 
-##formalna procjena parametra pa ks test
+#procjena parametra te ks test za testiranje normalnosti
 library(MASS)
 fitb <- fitdistr(beta, "normal")
 fitc <- fitdistr(cauchy, "normal")
@@ -44,22 +42,13 @@ parab <- fitb$estimate
 parac <- fitc$estimate
 ks.test(cauchy, "pnorm", parac[1],parac[2]) #ovo nije normalno
 ks.test(beta, "pnorm",parab[1],parab[2]) #ovo ispada normalno
-#beta ima prvi moment, a cauchy nema -> fabijan kaze
+#takvi rezultati zato što -> beta ima konačan prvi moment, a cauchy nema 
 
-
-#ispitivanje normalnosti normalnim vjerojatnosnim grafom
-qqnorm(cauchy)
-qqline(cauchy)
-qqnorm(beta) #ovo je vise normalno?
-qqline(beta)
-
-
-#testiranje srednjekvadratnog odstupanja
-#koristim hi kvadrat test
+#testiranje srednjekvadratnog odstupanja - koristimo hi-kvadrat test
 #H_0 -> sigma_0 = 0.5
 #H_1 -> sigma_0 > 0.5
 hi_kvadrat = ((50-1)/(0.5)**2 ) * var(beta) #testna statistika
-pvalue = 1 - pchisq(hi_kvadrat, 50-1) # 0.7413 veliki p, pa ne odbacujemo H_0
+pvalue = 1 - pchisq(hi_kvadrat, 50-1) #veliki p, pa ne odbacujemo H_0
 pvalue
 #kriticno podrucje
 qchisq(0.01,49) #statistika ne upada u kriticno podrucje
