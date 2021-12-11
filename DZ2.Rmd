@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #grafičko testiranje ovisnosti
 dionica = read.csv("dionica.csv") #učitavanje podataka
 par(mfrow=c(2,2)) 
-plot(dionica$BDP, dionica$Cijena, col="red")
+plot(dionica$BDP, dionica$Cijena, col="red") # uopće se ne čini zavisnos
 plot(dionica$ZAP, dionica$Cijena, col="blue") #moguća zavisnost
 plot(dionica$KS, dionica$Cijena, col="green")
 plot(dionica$MJ, dionica$Cijena, col= "orange") #moguća zavisnost
@@ -40,50 +40,34 @@ lines(matrica$upr, col="red")
 ## c dio
 ```{r}
 #testiranje da je koeficijent uz kamatna stopu 100
-
 model2 = lm(dionica$Cijena ~dionica$BDP+dionica$ZAP+ offset(100*dionica$KS)+dionica$MJ)
 anova(model2,model)
-#velika p vrijednost, ne odbacujemo nul hipotezu, znaci da je ovaj koeficijent 100
-
+#velika p vrijednost -> jednostavniji model(model2) je "dovoljan"
+#ne odbacujemo nul hipotezu, znaci da je ovaj koeficijent 100
 ```
 
 ## d dio
 ```{r}
-nove_dionice = read.csv("nova_cijena.csv") #učitavanje podataka
-novi_model = lm(nove_dionice$Cijena ~ nove_dionice$BDP+nove_dionice$ZAP+nove_dionice$KS+nove_dionice$MJ)
-predict(novi_model, i="c")
-dionica$Cijena
+nove_dionice = read.csv("nova_cijena.csv") 
+model2= lm(nove_dionice$Cijena ~ nove_dionice$BDP+nove_dionice$ZAP+nove_dionice$KS+nove_dionice$MJ)
 
-#Ninin i Tein nacin
-matrica2 = predict(novi_model, level=0.9, i="p")
-matrica2 = as.data.frame(matrica2)
-plot(dionica$Cijena)
-lines(matrica2$lwr, col="red") 
-lines(matrica2$upr, col="red")
-#obrnuto
-plot(nove_dionice$Cijena)
-lines(matrica$lwr, col="blue") 
-lines(matrica$upr, col="blue")
+matrica = predict(model, level=0.9, i="p") 
+matrica = as.data.frame(matrica)
 
-#dionica ima 24 tocke
-#nove_dionice imaju 12 tocaka
-
-anova(model, novi_model)
-AIC(model)
-AIC(novi_model)
-BIC(model)
-BIC(novi_model)
-#bolji model je ovaj novi
+plot(predict(model2), xlim=c(1,28), ylim=c(0,2000))
+lines(matrica$lwr, col="red") 
+lines(matrica$upr, col="red")
+#procjene nisu dobre -> premalen uzorak
 ```
 
 ## e dio
 ```{r}
 #uklananje točaka radi poboljšanja prediktivne vrijednosti
 library(base)
-
 distance = cooks.distance(model)
 length(distance[distance > 0.5]) 
-#nema utjecajnih tocaka 
+
+#utjecajne točke ne postoje
 ```
 
 
@@ -99,24 +83,53 @@ summary(model)
 ## b dio - provjera pretpostavki linearnog modela
 ```{r}
 #1.linearnost podataka
-res = resid(model)
+res = model$res
 plot(prodaja$dan, res) 
 abline(a=0,b=0)
 #raspršenje oko apcise ukazuje na nelinearnost
 
+plot(prodaja$kolicina, predict(model),xlim=c(4,8), ylim=c(5,7))
+abline(a=0,b=1, col="red")
+#raspršenje oko pravca y=x ukazuje na nelinearnost
+
+plot(prodaja$dan, prodaja$kolicina)
+plot(prodaja$dan, exp(prodaja$kolicina)) #vidimo da je ovo dobra transformacija
+model = lm(exp(prodaja$kolicina)~prodaja$dan)
+summary(model)
+
 #2.nezavisnost grešaka
 library(lmtest)
 dwtest(model)
-#mala p vrijednost, odbacujemo null hipotezu 
-#nul hipoteza je da ne postoji korelacija 
+#null hipoteza je da ne postoji korelacija
+#velik p vrijednost, ne odbacujemo null hipotezu 
+#možemo pretpo da na svakoj stan raz značajnosti nisu korelirani
 
 #3. homogenost greška
+library(tseries)
+jarque.bera.test(model$res)
+#mala p value, odbacujemo H_0, 
+#null hipoteza je podaci dolaze iz normalne distribucije
+#ovi rezidualni nisu normali
+
 
 #4. normalnost greška
+shapiro.test(model$res)
+#mala p value, odbacujemo H_0
+#nemogu pretpo normalnost
 ```
 
 ## c dio
 ```{r}
+y <- exp(prodaja$kolicina)
+x <- prodaja$dan
+model = lm(y ~ x)
+future <- data.frame(x = c(1096:1102))
+
+
+plot(log(predict(model, newdata = future, interval = 'confidence'))[,1], xlim=c(0,10), ylim=c(6.7,6.8), ylab="kolicina prodaje")
+lines(log(predict(model, newdata = future, interval = 'confidence')[,2]), col="red") 
+lines(log(predict(model, newdata = future, interval = 'confidence')[,3]), col="red")
+
 
 ```
 
