@@ -1,0 +1,143 @@
+---
+title: "DZ3"
+author: "Eleonora Detić"
+date: "12/11/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Zadatak 5 - Auto osiguranje
+
+## a dio
+```{r}
+#prosječan iznos prijavljene štete po spolu
+auto <- read.csv("auto.csv")
+aggregate(auto$iznos, list(auto$spol), FUN=mean) 
+```
+
+## b dio
+```{r}
+#ispitivanje statističke povezanosti varijable prijava o spolu i županiji
+#grafički
+zupanija = aggregate(auto$prijava, list(auto$zupanija, auto$prijava), FUN=length)
+barplot(matrix(zupanija$x,ncol = 21,byrow = TRUE), beside=T, legend =  c('Nisu prijavili štetu','Prijavili su štetu'), names.arg = c(1:21), col=c('blue', 'gray'))
+spol = aggregate(auto$prijava, list(auto$spol,auto$prijava), FUN=length) 
+barplot(matrix(spol$x,ncol = 2,byrow = TRUE), beside=T, legend = c('Nisu prijavili štetu','Prijavili su štetu'), names.arg = c("Muškarci", "Žene"), col=c('pink', 'gray'))
+
+#uočimo kako nemamo podjednak broj podataka za svaku zupaniju te za svaki spol
+aggregate(auto$prijava, list(auto$spol), FUN=length) 
+aggregate(auto$prijava, list(auto$zupanija), FUN=length) 
+
+#ineferencijalno
+library(DescTools)
+CramerV(auto$prijava, auto$spol) #manji od 0.1 - nema povezanosti
+CramerV(auto$prijava, auto$zupanija) #manji od 0.1 - nema povezanosti
+#vise utjece zupanija jer ima veci C. koeficijent
+
+```
+
+## c dio
+
+```{r}
+
+model <- lm(auto$iznos ~auto$dob + auto$iskustvo)
+summary(model, corr=T)
+
+```
+## d dio
+```{r}
+model1 <- lm(auto$iznos ~ auto$dob)
+summary(model1) #dob i iznos zavisni 
+model2 <- lm(auto$iznos ~ auto$dob * auto$prijava)
+summary(model2)
+anova(model1,model2) #mala p value, model se nemože pojednostaviti, interakcija je znacajna
+```
+
+## e dio
+```{r}
+#odabir optimalnog modela
+model = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$iskustvo + auto$br.uzdr.cl + auto$udio.stete + auto$prijava)
+step(model)
+#najbolji model je onaj najdonji, tamo je AIC kriterij najmanji
+#ponovo d dio
+```
+
+## g dio
+```{r}
+model = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$br.uzdr.cl + auto$udio.stete + auto$prijava)
+#ponovo d dio
+
+```
+
+
+## Zadatak 6 - Zaraza koronavirusom
+
+## a dio
+```{r}
+korona <- read.csv("korona_hrv.csv",header=FALSE) #1.lipnja 2021 je utorak
+xt = ts(korona$V1, frequency = 7)
+ts.plot(korona, col="red")
+d = 7  #period
+#nije homogeno, vidimo sve veći porast u vremenu
+```
+
+## b dio
+```{r}
+ #1.lipnja 2021 je utorak
+xt = ts(korona$V1, frequency = 7)
+x.stl=stl(xt,s.window = "periodic")
+plot(x.stl,col="red")
+acf(xt)
+pacf(xt)
+
+#fitamo ARIMA proces
+AR <- arima(xt, order = c(0.8,0))
+print(AR)
+ts.plot(xt)
+AR_fit <-xt - residuals(AR)
+points(AR_fit, type = "l", col = 2, lty = 2)
+```
+
+## c dio
+```{r}
+#grafički prikaz procjena i 95% pouzdane pruge
+AR_forecast <- predict(AR, n.ahead = 24)$pred
+AR_forecast_se <- predict(AR, n.ahead = 24)$se
+ts.plot(xt, xlim=c(0,40))
+points(AR_forecast, type = "l")
+points(AR_forecast - 2*AR_forecast_se, type = "l", col = 2, lty = 2)
+points(AR_forecast + 2*AR_forecast_se, type = "l", col = 2, lty = 2)
+
+#koliko su naše procjene blizu?
+new_korona <- read.csv("korona_hrv_studeni.csv",header=FALSE)
+razlika = AR_forecast - new_korona$V1
+razlika
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Zadatak 7 - podaci o proizvodnji električne opreme
+```{r}
+
+```
+
