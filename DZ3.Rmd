@@ -65,10 +65,33 @@ cor(auto$dob,auto$iskustvo,method="pearson") #0.9969117
 #ispitivanje ovisnosti iznosa štete i dobi - ovisi li to o prijavi štete? 
 
 model1 <- lm(auto$iznos ~ auto$dob)
-summary(model1) #dob i iznos zavisni, ovaj model je sve u svemu dobar 
+summary(model1) 
+#kod manjih iznosa šteta dob nije bitna, a kod većih se poveća kao što se poveća i dob
 
-model2 <- lm(auto$iznos ~ auto$dob + auto$dob * factor(auto$prijava)) #dodavanje interekacije
-summary(model2) #ovdje ispada da interakcija nije znacajna?
+col<-c("pink", "blue")[factor(auto$prijava)]
+plot(auto$dob,auto$iznos,xlab="Dob",ylab="Iznos",pch=4,col=col)
+#gornji dio se ponaša linearno,a donji ne
+abline(300000,0,col="red",lwd=4) #odvojam dio koji je linearni i onaj koji nije
+
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 0], auto$iznos[auto$iznos>300000 & auto$prijava == 0],col="red")
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 1], auto$iznos[auto$iznos>300000 & auto$prijava == 1],col="blue")
+#i kod onih koji su prijavili i nisu prijavili vidimo linearan odnos za iznose štete veće od 30000
+
+#posebno dva modela ovisno o prijavu
+model_0=lm(auto$iznos[auto$iznos>300000 & auto$prijava == 0] ~ auto$dob[auto$iznos>300000 & auto$prijava == 0])
+summary(model_0)
+model_1=lm(auto$iznos[auto$iznos>300000 & auto$prijava == 1] ~ auto$dob[auto$iznos>300000 & auto$prijava == 1])
+summary(model_1)
+
+#predikcije svakog od modela
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 0], auto$iznos[auto$iznos>300000 & auto$prijava == 0],col="red")
+lines(auto$dob[auto$iznos>300000 & auto$prijava == 0],model_0$fitted.values)
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 1], auto$iznos[auto$iznos>300000 & auto$prijava == 1],col="blue")
+lines(auto$dob[auto$iznos>300000 & auto$prijava == 1], model_1$fitted.values)
+#procjene su otprilike iste bilo osoba imala prijavu ili ne pa cini nam se da interakcija neće imat ulogu
+
+model2 <- lm(auto$iznos ~ auto$dob * factor(auto$prijava)) #dodavanje interekacije
+summary(model2) #ovdje ispada da interakcija nije znacajna
 
 anova(model1,model2) #velik p value, dovoljan je jednostavan model -> interakcija nije stat značajna kao što smo vidjeli i gore
 #taj omjer ne ovisi o tome je li osoba vec prijavila stetu ili ne 
@@ -76,15 +99,17 @@ anova(model1,model2) #velik p value, dovoljan je jednostavan model -> interakcij
 #grafički prikazi 
 interaction.plot(x.factor=auto$dob, trace.factor = auto$prijava, response = auto$iznos,col = c("red", "blue"), trace.label = "Prijava", type = "p",pch=c(0:1))
 
-#library(RColorBrewer)
-col<-c("pink", "blue")[factor(auto$prijava)]
-plot(auto$dob,auto$iznos,xlab="Dob",ylab="Iznos",pch=4,col=col)
 #text(auto$dob,auto$iznos,as.character(auto$prijava)) #mogu i ovo ali mi je malo nepregledno
 lapply(split(auto,auto$prijava),summary) #deskriptivna statistika za prijavu
 
 #prikaz modela
+plot(auto$dob[auto$iznos>300000],auto$iznos[auto$iznos>300000],xlab="Dob",ylab="Iznos")
 library(ggplot2)
-ggplot(auto, aes(x = dob, y = iznos)) + geom_point() +stat_smooth(method = "lm", col = "red")
+auto_new = data.frame(auto$dob[auto$iznos>300000],auto$iznos[auto$iznos>300000])
+auto_new.names()
+names(auto_new)
+ggplot(auto_new, aes(x = auto.dob.auto.iznos...3e.05., y = auto.iznos.auto.iznos...3e.05.)) + geom_point() +stat_smooth(method = "lm", col = "red")
+#model ima smisla ako je steta veca od 30000
 ```
 
 ## e dio
@@ -98,7 +123,7 @@ step(model_full,trace=T)
 
 ## f dio
 ```{r}
-#uvođenje varijabla u model obrnutim redoslijedom i ponovo dio d
+#uvođenje varijabla u model obrnutim redoslijedom
 model <- lm(auto$iznos ~ 1)
 summary(model)  #samo intercept je u modelu
 step(model,trace=T, direction = "forward",scope=formula(model_full))
@@ -107,12 +132,13 @@ step(model,trace=T, direction = "forward",scope=formula(model_full))
 ## g dio
 
 ```{r}
-model = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$br.uzdr.cl + auto$udio.stete + auto$prijava)
-summary(model) #dobar model
+#uvodimo sve varijable osim vozačkog iskustva i ponavljamo dio sa step
+model_no_experience = lm(auto$iznos ~ auto$spol + as.factor(auto$zupanija) + auto$dob + auto$br.uzdr.cl + auto$udio.stete + as.factor(auto$prijava))
+summary(model_no_experience) #značajan model
 
-model2 <- lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob * factor(auto$prijava) + auto$br.uzdr.cl + auto$udio.stete + auto$prijava) #dodavanje interekacije
-summary(model2) 
-
+step(model_no_experience) #ponavljamo dio od prije
+#optimalni model sada ovisi o spolu, dobi i udiu stete   
+#model nije isti jer smo izbacili iskustvo koja je važna varijabla po AIC kriteriju
 ```
 
 
