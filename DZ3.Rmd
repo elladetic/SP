@@ -151,6 +151,13 @@ korona <- read.csv("korona_hrv.csv",header=FALSE)
 ts.plot(korona, col="red")
 ts.plot(korona$V1[100:120], col="red") #izdvojen jedan segmentic - period je 7
 
+#koristeći ggplot
+ggplot(data = korona) + geom_line(mapping = aes(x = 1:length(korona$V1), y = V1),col="red")
+
+library('tseries')
+jarque.bera.test(xt)
+#jarque bera test -> jako mala p vrijednost te stoga odbacujemo H0 o homogensti naših podataka
+
 #nije homogeno, vidimo sve veći porast u broju zarazenih kroz vrijeme
 #moguća homogenost do tipa indeksa 75, nakon toga veliki skokovi pa nemamo više homogenost
 #ako je homogeno onda se ne mijenja varijanca i ocekivanja na podskupovima podataka
@@ -158,27 +165,61 @@ ts.plot(korona$V1[100:120], col="red") #izdvojen jedan segmentic - period je 7
 
 ## b dio
 ```{r}
-xt = ts(korona$V1, frequency = 7)
+xt = ts(korona$V1, start=1,frequency = 7)
 x.stl=stl(xt,s.window = "periodic")
+
 plot.ts(xt, col="red", main="Podaci prije transformacije")
 plot(x.stl,col="red", main="STL prije transofrmacije")
+
 #uočavamo eksponencijalni trend, pa ćemo logaritmirati podatke
+#xt = log(xt)
+#x.stl=stl(xt,s.window = "periodic")
+#plot.ts(xt, col="blue", main="Podaci nakon logaritmiranja")
+#plot(x.stl,col="blue", main="STL nakon logaritmiranja")
 
-xt = log(xt)
-x.stl=stl(xt,s.window = "periodic")
-plot.ts(xt, col="blue", main="Podaci nakon logaritmiranja")
-plot(x.stl,col="blue", main="STL nakon logaritmiranja")
+seasonal = x.stl$time.series[,1]
+trend = x.stl$time.series[,2]
+remainder = x.stl$time.series[,3]
+
+x_no_sez = xt - seasonal
+plot.ts(x_no_sez,col="red",main="Desezonalni niz") #uklananje sezonalnosti
+x_no_trend = x_no_sez - trend #uklanjanje trenda
+plot.ts(x_no_trend,col="red",main="Desezonalni niz sa uklonjenim trendom")
+
+t <- 1:153
+model_trend <- lm(xt ~ t+I(t^2)+I(t^3)+log(t))
+summary(model_trend) #ovaj model mi je znacajan
+predictions = predict(model_trend)
+
+plot(t,x_no_sez,type = 'l')
+lines(t,model_trend $fitted.values,col='red') #polinom 6 stupnja je relativno okej fit
+
+remainder = x_no_sez - predictions
+plot(remainder)
+
+#fitanje arima modela
+model = auto.arima(remainder, seasonal = FALSE)
+model
+plot(t,remainder,type="l")
+lines(t,model$fitted,col="red")
+#acf(remainder) #ovo ne izgleda dobro? više od 5% iskače
+#library('nortest')
+#lillie.test(remainder)#mala p vrijednost, ostaci nisu normalni - nemamo bijeli šum
 
 
-x_no_sez = xt -x.stl$time.series[,1]
-plot.ts(x_no_sez,col="green",main="Desezonalni niz") #uklananje sezonalnosti
-x_no_trend = x_no_sez -x.stl$time.series[,2] #uklanjanje trenda
-plot.ts(x_no_trend,col="green",main="Desezonalni niz sa uklonjenim trendom")
+fc = forecast(model, h = 24)
+fc_s = seasonal[7:30]
 
-acf(x.stl$time.series[,3])
-#5 stupića odskače od 23, što je više od 5% pa nemožemo pretpostaviti nekoreliranost
-library('nortest')
-lillie.test(x.stl$time.series[,3])#mala p vrijednost, ostaci nisu normalni - nemamo bijeli šum
+new_korona <- read.csv("korona_hrv_studeni.csv",header=FALSE)
+new_t = ((length(korona$V1)+1):(length(korona$V1)+24))
+new_t <- data.frame(t = c(154:(154+23)))
+new_t
+fc_t = predict(model_trend, new_t) # u predict ovo mora ic ko dataframe iz nekog razloga da ga on prepozna
+
+plot(c(1:24),new_korona$V1,col="red",type="l")
+lines(c(1:24), fc$mean+fc_s +fc_t)
+lines(c(1:24), fc$lower[,2] + fc_s + fc_t,col="blue")
+lines(c(1:24), fc$upper[,2] + fc_s + fc_t,col="blue")
 
 ```
 
