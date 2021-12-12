@@ -60,7 +60,7 @@ qchisq(0.01,49) #statistika ne upada u kriticno podrucje
 X = runif(30,0,1) #nasumičan uzorak uniformne jedinične distribucije
 Y = X ** (1/3)
 
-# grafičkaprovjera dolazi li Y iz neke beta razdiobe
+# grafička provjera dolazi li Y iz neke beta razdiobe
 library(fitdistrplus)
 plot(fitdist(Y, "beta"))
 
