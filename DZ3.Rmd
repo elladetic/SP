@@ -27,48 +27,91 @@ barplot(matrix(zupanija$x,ncol = 21,byrow = TRUE), beside=T, legend =  c('Nisu p
 spol = aggregate(auto$prijava, list(auto$spol,auto$prijava), FUN=length) 
 barplot(matrix(spol$x,ncol = 2,byrow = TRUE), beside=T, legend = c('Nisu prijavili štetu','Prijavili su štetu'), names.arg = c("Muškarci", "Žene"), col=c('pink', 'gray'))
 
-#uočimo kako nemamo podjednak broj podataka za svaku zupaniju te za svaki spol
-aggregate(auto$prijava, list(auto$spol), FUN=length) 
-aggregate(auto$prijava, list(auto$zupanija), FUN=length) 
 
 #ineferencijalno
 library(DescTools)
+#hi kvadrat test H_0 -> nezavisne su 
+chisq.test(auto$prijava, auto$spol) #mali p vrijednost, odbacujem H_0
+chisq.test(auto$prijava, auto$zupanija) #velik p vrijednost, ne odbacujemo H_0 
+
 CramerV(auto$prijava, auto$spol) #manji od 0.1 - nema povezanosti
 CramerV(auto$prijava, auto$zupanija) #manji od 0.1 - nema povezanosti
 #vise utjece zupanija jer ima veci C. koeficijent
-
 ```
 
 ## c dio
-
 ```{r}
+#ispitivanje linearne povezanosti dobi i duljine vozačkog iskustva -> obje gledamo kao neprekidne
 
-model <- lm(auto$iznos ~auto$dob + auto$iskustvo)
-summary(model, corr=T)
+#grafički
+#plot(auto$dob, auto$iskustvo, col="blue") 
+library(ggplot2)
+library(ggpubr)
+ggscatter(auto, x = "dob", y = "iskustvo", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Miles/(US) gallon", ylab = "Weight (1000 lbs)")+theme_bw()
+#ovaj grafički prikaz mi već djeluje kao da bi mogle biti jako zavisne
+
+
+#inefercijalno
+cor(auto$dob,auto$iskustvo,method="spearman") #0.9952043
+cor(auto$dob,auto$iskustvo,method="pearson") #0.9969117
+#koeficijenti blizu 1, jako zavisne, nebi smjele ići zajedno u model!
 
 ```
 ## d dio
 ```{r}
+#ispitivanje ovisnosti iznosa štete i dobi - ovisi li to o prijavi štete? 
+
 model1 <- lm(auto$iznos ~ auto$dob)
-summary(model1) #dob i iznos zavisni 
-model2 <- lm(auto$iznos ~ auto$dob * auto$prijava)
-summary(model2)
-anova(model1,model2) #mala p value, model se nemože pojednostaviti, interakcija je znacajna
+summary(model1) #dob i iznos zavisni, ovaj model je sve u svemu dobar 
+
+model2 <- lm(auto$iznos ~ auto$dob + auto$dob * factor(auto$prijava)) #dodavanje interekacije
+summary(model2) #ovdje ispada da interakcija nije znacajna?
+
+anova(model1,model2) #velik p value, dovoljan je jednostavan model -> interakcija nije stat značajna kao što smo vidjeli i gore
+#taj omjer ne ovisi o tome je li osoba vec prijavila stetu ili ne 
+
+#grafički prikazi 
+interaction.plot(x.factor=auto$dob, trace.factor = auto$prijava, response = auto$iznos,col = c("red", "blue"), trace.label = "Prijava", type = "p",pch=c(0:1))
+
+#library(RColorBrewer)
+col<-c("pink", "blue")[factor(auto$prijava)]
+plot(auto$dob,auto$iznos,xlab="Dob",ylab="Iznos",pch=4,col=col)
+#text(auto$dob,auto$iznos,as.character(auto$prijava)) #mogu i ovo ali mi je malo nepregledno
+lapply(split(auto,auto$prijava),summary) #deskriptivna statistika za prijavu
+
+#prikaz modela
+library(ggplot2)
+ggplot(auto, aes(x = dob, y = iznos)) + geom_point() +stat_smooth(method = "lm", col = "red")
 ```
 
 ## e dio
 ```{r}
-#odabir optimalnog modela
-model = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$iskustvo + auto$br.uzdr.cl + auto$udio.stete + auto$prijava)
-step(model)
+#odabir optimalnog modela bez interakcija
+model_full = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$iskustvo + auto$br.uzdr.cl + auto$udio.stete + auto$prijava)
+step(model_full,trace=T)
 #najbolji model je onaj najdonji, tamo je AIC kriterij najmanji
-#ponovo d dio
+#iznos = intercept + spol + iskustvo + udio_stete
 ```
 
+## f dio
+```{r}
+#uvođenje varijabla u model obrnutim redoslijedom i ponovo dio d
+model <- lm(auto$iznos ~ 1)
+summary(model)  #samo intercept je u modelu
+step(model,trace=T, direction = "forward",scope=formula(model_full))
+#ponovo čitamo skroz na kraju -> dobili smo isti model
+```
 ## g dio
+
 ```{r}
 model = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$br.uzdr.cl + auto$udio.stete + auto$prijava)
-#ponovo d dio
+summary(model) #dobar model
+
+model2 <- lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob * factor(auto$prijava) + auto$br.uzdr.cl + auto$udio.stete + auto$prijava) #dodavanje interekacije
+summary(model2) 
 
 ```
 
@@ -77,62 +120,134 @@ model = lm(auto$iznos ~ auto$spol + auto$zupanija + auto$dob + auto$br.uzdr.cl +
 
 ## a dio
 ```{r}
-korona <- read.csv("korona_hrv.csv",header=FALSE) #1.lipnja 2021 je utorak
-xt = ts(korona$V1, frequency = 7)
+korona <- read.csv("korona_hrv.csv",header=FALSE) 
+#plot( c(1:153),korona$V1)
 ts.plot(korona, col="red")
-d = 7  #period
-#nije homogeno, vidimo sve veći porast u vremenu
+ts.plot(korona$V1[100:120], col="red") #izdvojen jedan segmentic - period je 7
+
+#nije homogeno, vidimo sve veći porast u broju zarazenih kroz vrijeme
+#moguća homogenost do tipa indeksa 75, nakon toga veliki skokovi pa nemamo više homogenost
+#ako je homogeno onda se ne mijenja varijanca i ocekivanja na podskupovima podataka
 ```
 
 ## b dio
 ```{r}
- #1.lipnja 2021 je utorak
 xt = ts(korona$V1, frequency = 7)
 x.stl=stl(xt,s.window = "periodic")
-plot(x.stl,col="red")
-acf(xt)
-pacf(xt)
+plot.ts(xt, col="red", main="Podaci prije transformacije")
+plot(x.stl,col="red", main="STL prije transofrmacije")
+#uočavamo eksponencijalni trend, pa ćemo logaritmirati podatke
 
-#fitamo ARIMA proces
-AR <- arima(xt, order = c(0.8,0))
-print(AR)
-ts.plot(xt)
-AR_fit <-xt - residuals(AR)
-points(AR_fit, type = "l", col = 2, lty = 2)
+xt = log(xt)
+x.stl=stl(xt,s.window = "periodic")
+plot.ts(xt, col="blue", main="Podaci nakon logaritmiranja")
+plot(x.stl,col="blue", main="STL nakon logaritmiranja")
+
+
+x_no_sez = xt -x.stl$time.series[,1]
+plot.ts(x_no_sez,col="green",main="Desezonalni niz") #uklananje sezonalnosti
+x_no_trend = x_no_sez -x.stl$time.series[,2] #uklanjanje trenda
+plot.ts(x_no_trend,col="green",main="Desezonalni niz sa uklonjenim trendom")
+
+acf(x.stl$time.series[,3])
+#5 stupića odskače od 23, što je više od 5% pa nemožemo pretpostaviti nekoreliranost
+library('nortest')
+lillie.test(x.stl$time.series[,3])#mala p vrijednost, ostaci nisu normalni - nemamo bijeli šum
+
 ```
+
 
 ## c dio
 ```{r}
-#grafički prikaz procjena i 95% pouzdane pruge
-AR_forecast <- predict(AR, n.ahead = 24)$pred
-AR_forecast_se <- predict(AR, n.ahead = 24)$se
-ts.plot(xt, xlim=c(0,40))
-points(AR_forecast, type = "l")
-points(AR_forecast - 2*AR_forecast_se, type = "l", col = 2, lty = 2)
-points(AR_forecast + 2*AR_forecast_se, type = "l", col = 2, lty = 2)
+xt = ts(korona$V1, frequency = 7)
+xt_new = log(xt)
+x_new_stl =stl(xt_new ,s.window = "periodic")
+pacf(x_new_stl$time.series[,3]) 
+acf(x_new_stl$time.series[,3]) #skok nakon 4 stupica - AR(4)
+
+#MA(1) = arima(0,0,1)
+#AR(1) = arima(1,0,0)
+#fitamo MA proces
+
+AR_1 <- arima(x_no_sez, order = c(4,0,0),include.mean = T, d=1) #ovo javlja gresku jer nije stacionarno, moramo diferencirati
+xt_diff <- diff(x_no_sez)
+
+AR_1 <- arima(xt_diff,order = c(4,0,0)) #sad je okej, AIC je -18.32
+
+  
+#isprobavanje AR modela za fit
+arima(xt_diff,order = c(1,0,0)) #AR(1) aic je -6
+arima(xt_diff,order = c(2,0,0)) #AR(2) aic je -13
+arima(xt_diff,order = c(3,0,0)) #AR(1) aic je -19
+arima(xt_diff,order = c(4,0,0)) #AR(1) aic je -18
+arima(xt_diff,order = c(5,0,0)) #AR(1) aic je -17
+
+#isprobavanje MA modela za fit
+arima(xt_diff,order = c(0,0,1)) #MA(1) aic je -19
+arima(xt_diff,order = c(0,0,2)) #MA(2) aic je -17
+arima(xt_diff,order = c(0,0,3)) #MA(3) aic je -16
+arima(xt_diff,order = c(0,0,4)) #MA(1) aic je -24
+arima(xt_diff,order = c(0,0,5)) #MA(1) aic je -22
+arima(xt_diff,order = c(0,0,6)) #MA(1) aic je -29
+#6 nam je okej, dalje se povećava
+
+MA_final = arima(xt_diff,order = c(0,0,6)) # za taj model smo se odlucili
+acf(MA_final$residuals) #svi su unutra, nekolireni -> to nam se sviđa
+library('nortest')
+lillie.test(MA_final$residuals) #nije bas normalno al skoro je .. :) 
+
+future <- predict(MA_final , n.ahead = 24)$pred
+future_se <- predict(MA_final , n.ahead = 24)$se
+
+
+#grafički prikaz procjena
+ts.plot(xt_diff,xlim=c(0,40))
+points(future, type = "l")
+points(future - 2*future_se, type = "l", col = 2, lty = 2)
+points(future + 2*future_se, type = "l", col = 2, lty = 2)
+
 
 #koliko su naše procjene blizu?
 new_korona <- read.csv("korona_hrv_studeni.csv",header=FALSE)
-razlika = AR_forecast - new_korona$V1
+razlika = exp(AR_forecast) - new_korona$V1
 razlika
+ AR_forecast
 ```
 
+##provjera
+
+```{r}
 
 
 
 
+library(forecast)
+auto.arima(diff(xt_transform))
 
 
 
+xt = ts(korona$V1, frequency = 7)
+plot.ts(xt)
+plot.ts(log(xt)) #vidimo da se varijanca malo stabilizirala
+xt_transform = log(xt)
+library(forecast)
+auto.arima(diff(xt_transform))
+#7 je period (1,0,0) je sezonalni dio(2,1,0), najbolji fit je ARIMA(2,1,2)
+
+
+fit <- arima(xt_transform, c(2, 1, 2), seasonal = list(order = c(2, 1, 0), period = 7))
+acf(fit$residuals) #nisu nekorelirani
 
 
 
-
-
-
-
-
-
+AR_fit <- predict(fit, n.ahead = 24)$pred
+AR_fit_se <- predict(fit, n.ahead = 24)$se
+razlike = AR_fit+AR_fit_se - new_korona$V1
+razlike
+new_korona$V1
+AR_fit
+diffinv(AR_fit)
+```
 
 
 

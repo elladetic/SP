@@ -44,20 +44,33 @@ model2 = lm(dionica$Cijena ~dionica$BDP+dionica$ZAP+ offset(100*dionica$KS)+dion
 anova(model2,model)
 #velika p vrijednost -> jednostavniji model(model2) je "dovoljan"
 #ne odbacujemo nul hipotezu, znaci da je ovaj koeficijent 100
+#ne postoji statisticki znacajna razlika izmedu modela
+confint(model, level=0.95) #100 je u KS
 ```
 
 ## d dio
 ```{r}
+
 nove_dionice = read.csv("nova_cijena.csv") 
 model2= lm(nove_dionice$Cijena ~ nove_dionice$BDP+nove_dionice$ZAP+nove_dionice$KS+nove_dionice$MJ)
+summary(model2)
+predict(model2)
+#velika p vrijednost - model nije dobar
 
 matrica = predict(model, level=0.9, i="p") 
 matrica = as.data.frame(matrica)
 
-plot(predict(model2), xlim=c(1,28), ylim=c(0,2000))
+#moj način
+plot(predict(model2),xlim=c(0,30),ylim=c(600,1700))
 lines(matrica$lwr, col="red") 
 lines(matrica$upr, col="red")
 #procjene nisu dobre -> premalen uzorak
+
+#Evin način
+plot(nove_dionice$Cijena,xlim=c(0,30),ylim=c(600,1700))
+lines(matrica$lwr, col="red") 
+lines(matrica$upr, col="red")
+
 ```
 
 ## e dio
@@ -77,20 +90,24 @@ length(distance[distance > 0.5])
 ```{r}
 prodaja = read.table("prodaja.dat", header=TRUE) 
 model = lm(prodaja$kolicina~prodaja$dan)
-summary(model)
+summary(model) #dobar model
+plot(prodaja$dan, prodaja$kolicina, col="blue")
+lines(model$fitted.values, col="red")
+#neki logaritimarski podaci
 ```
 
 ## b dio - provjera pretpostavki linearnog modela
 ```{r}
 #1.linearnost podataka
 res = model$res
-plot(prodaja$dan, res) 
+plot(model$fitted.values, res) 
 abline(a=0,b=0)
 #raspršenje oko apcise ukazuje na nelinearnost
-
 plot(prodaja$kolicina, predict(model),xlim=c(4,8), ylim=c(5,7))
 abline(a=0,b=1, col="red")
 #raspršenje oko pravca y=x ukazuje na nelinearnost
+
+#možda dodati pretpostavke i prije??
 
 plot(prodaja$dan, prodaja$kolicina)
 plot(prodaja$dan, exp(prodaja$kolicina)) #vidimo da je ovo dobra transformacija
@@ -99,6 +116,7 @@ summary(model)
 
 #2.nezavisnost grešaka
 library(lmtest)
+#dodaj qqnorm
 dwtest(model)
 #null hipoteza je da ne postoji korelacija
 #velik p vrijednost, ne odbacujemo null hipotezu 
