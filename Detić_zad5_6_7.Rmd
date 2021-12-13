@@ -1,0 +1,528 @@
+---
+title: "DZ3"
+author: "Eleonora Detić"
+date: "12/11/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Zadatak 5 - Auto osiguranje
+
+## a dio
+```{r}
+#prosječan iznos prijavljene štete po spolu
+auto <- read.csv("auto.csv")
+aggregate(auto$iznos, list(auto$spol), FUN=mean) 
+```
+
+## b dio
+```{r}
+#ispitivanje statističke povezanosti varijable prijava o spolu i županiji
+#grafički
+zupanija = aggregate(auto$prijava, list(auto$zupanija, auto$prijava), FUN=length)
+barplot(matrix(zupanija$x/sum(zupanija$x),ncol = 21,byrow = TRUE), beside=T, legend =  c('Nisu prijavili štetu','Prijavili su štetu'), names.arg = c(1:21), col=c('blue', 'gray'))
+spol = aggregate(auto$prijava, list(auto$spol,auto$prijava), FUN=length)  #relativne frekvencije jer nemamo isti broj muskaraca i zena
+barplot(matrix(spol$x/sum(spol$x),ncol = 2,byrow = TRUE), beside=T, legend = c('Nisu prijavili štetu','Prijavili su štetu'), names.arg = c("Muškarci", "Žene"), col=c('pink', 'gray'))
+library("vcd")
+mosaic(prijava~spol+zupanija,data=auto)
+mosaic(prijava~spol,data=auto)
+mosaic(prijava~zupanija,data=auto)
+
+#ineferencijalno
+library(DescTools)
+#hi kvadrat test: H_0 -> nezavisne su 
+chisq.test(auto$prijava, auto$spol) #mali p vrijednost, odbacujem H_0 -> statisticki su povezane
+chisq.test(auto$prijava, auto$zupanija) #velik p vrijednost, ne odbacujemo H_0 -> nisu statisticki povezane
+
+CramerV(auto$prijava, auto$spol) #manji od 0.1 - nema povezanosti
+CramerV(auto$prijava, auto$zupanija) #manji od 0.1 - nema povezanosti
+#vise utjece zupanija jer ima veci C. koeficijent
+```
+
+## c dio
+```{r}
+#ispitivanje linearne povezanosti dobi i duljine vozačkog iskustva -> obje gledamo kao neprekidne
+
+#grafički
+#plot(auto$dob, auto$iskustvo, col="blue") 
+library(ggplot2)
+library(ggpubr)
+ggscatter(auto, x = "dob", y = "iskustvo", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Miles/(US) gallon", ylab = "Weight (1000 lbs)")+theme_bw()
+#ovaj grafički prikaz mi već djeluje kao da bi mogle biti jako zavisne
+
+
+#inefercijalno
+cor(auto$dob,auto$iskustvo,method="spearman") #0.9952043
+cor(auto$dob,auto$iskustvo,method="pearson") #0.9969117
+#koeficijenti blizu 1, jako zavisne, nebi smjele ići zajedno u model!
+
+```
+## d dio
+```{r}
+#ispitivanje ovisnosti iznosa štete i dobi - ovisi li to o prijavi štete? 
+
+model1 <- lm(auto$iznos ~ auto$dob)
+summary(model1) 
+#kod manjih iznosa šteta dob nije bitna, a kod većih se poveća kao što se poveća i dob
+
+col<-c("pink", "blue")[factor(auto$prijava)]
+plot(auto$dob,auto$iznos,xlab="Dob",ylab="Iznos",pch=4,col=col)
+#gornji dio se ponaša linearno,a donji ne
+abline(300000,0,col="red",lwd=4) #odvojam dio koji je linearni i onaj koji nije
+
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 0], auto$iznos[auto$iznos>300000 & auto$prijava == 0],col="red")
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 1], auto$iznos[auto$iznos>300000 & auto$prijava == 1],col="blue")
+#i kod onih koji su prijavili i nisu prijavili vidimo linearan odnos za iznose štete veće od 30000
+
+#posebno dva modela ovisno o prijavu
+model_0=lm(auto$iznos[auto$iznos>300000 & auto$prijava == 0] ~ auto$dob[auto$iznos>300000 & auto$prijava == 0])
+summary(model_0)
+model_1=lm(auto$iznos[auto$iznos>300000 & auto$prijava == 1] ~ auto$dob[auto$iznos>300000 & auto$prijava == 1])
+summary(model_1)
+
+#predikcije svakog od modela
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 0], auto$iznos[auto$iznos>300000 & auto$prijava == 0],col="red")
+lines(auto$dob[auto$iznos>300000 & auto$prijava == 0],model_0$fitted.values)
+plot(auto$dob[auto$iznos>300000 & auto$prijava == 1], auto$iznos[auto$iznos>300000 & auto$prijava == 1],col="blue")
+lines(auto$dob[auto$iznos>300000 & auto$prijava == 1], model_1$fitted.values)
+#procjene su otprilike iste bilo osoba imala prijavu ili ne pa cini nam se da interakcija neće imat ulogu
+
+model2 <- lm(auto$iznos ~ auto$dob * factor(auto$prijava)) #dodavanje interekacije
+summary(model2) #ovdje ispada da interakcija nije znacajna
+
+anova(model1,model2) #velik p value, dovoljan je jednostavan model -> interakcija nije stat značajna kao što smo vidjeli i gore
+#taj omjer ne ovisi o tome je li osoba vec prijavila stetu ili ne 
+
+#grafički prikazi 
+interaction.plot(x.factor=auto$dob, trace.factor = auto$prijava, response = auto$iznos,col = c("red", "blue"), trace.label = "Prijava", type = "p",pch=c(0:1))
+
+#text(auto$dob,auto$iznos,as.character(auto$prijava)) #mogu i ovo ali mi je malo nepregledno
+lapply(split(auto,auto$prijava),summary) #deskriptivna statistika za prijavu
+
+#prikaz modela
+plot(auto$dob[auto$iznos>300000],auto$iznos[auto$iznos>300000],xlab="Dob",ylab="Iznos")
+library(ggplot2)
+auto_new = data.frame(auto$dob[auto$iznos>300000],auto$iznos[auto$iznos>300000])
+names(auto_new)
+ggplot(auto_new, aes(x = auto.dob.auto.iznos...3e.05., y = auto.iznos.auto.iznos...3e.05.)) + geom_point() +stat_smooth(method = "lm", col = "red")
+ggplot(auto, aes(x = dob, y = iznos)) + geom_point() +stat_smooth(method = "lm", col = "red")
+
+```
+
+## e dio
+```{r}
+#odabir optimalnog modela bez interakcija
+model_full = lm(auto$iznos ~ auto$spol + as.factor(auto$zupanija) + auto$dob + auto$iskustvo + auto$br.uzdr.cl + auto$udio.stete + as.factor(auto$prijava))
+step(model_full,trace=T)
+#najbolji model je onaj najdonji, tamo je AIC kriterij najmanji
+#iznos = intercept + spol + iskustvo + udio_stete
+```
+
+## f dio
+```{r}
+#uvođenje varijabla u model obrnutim redoslijedom
+model <- lm(auto$iznos ~ 1)
+summary(model)  #samo intercept je u modelu
+step(model,trace=T, direction = "forward",scope=formula(model_full))
+#ponovo čitamo skroz na kraju -> dobili smo isti model
+```
+## g dio
+
+```{r}
+#uvodimo sve varijable osim vozačkog iskustva i ponavljamo dio sa step
+model_no_experience = lm(auto$iznos ~ auto$spol + as.factor(auto$zupanija) + auto$dob + auto$br.uzdr.cl + auto$udio.stete + as.factor(auto$prijava))
+summary(model_no_experience) #značajan model
+
+step(model_no_experience) #ponavljamo dio od prije
+#optimalni model sada ovisi o spolu, dobi i udiu stete   
+#model nije isti jer smo izbacili iskustvo koja je važna varijabla po AIC kriteriju
+```
+
+
+## Zadatak 6 - Zaraza koronavirusom
+
+## a dio
+```{r}
+korona <- read.csv("korona_hrv.csv",header=FALSE) 
+#plot( c(1:153),korona$V1)
+ts.plot(korona, col="red")
+ts.plot(korona$V1[100:120], col="red") #izdvojen jedan segmentic - period je 7
+
+#koristeći ggplot
+ggplot(data = korona) + geom_line(mapping = aes(x = 1:length(korona$V1), y = V1),col="red")
+
+xt = ts(korona$V1, start=1,frequency = 7)
+library('tseries')
+jarque.bera.test(xt)
+#jarque bera test -> jako mala p vrijednost te stoga odbacujemo H_0 koja kaže da su podaci homogeni
+#nije homogeno, vidimo sve veći porast u broju zarazenih kroz vrijeme
+#moguća homogenost do tipa indeksa 75, nakon toga veliki skokovi pa nemamo više homogenost
+#ako je homogeno onda se ne mijenja varijanca i ocekivanja na podskupovima podataka
+```
+
+## b dio
+```{r}
+xt = ts(korona$V1, start=1,frequency = 7)
+x.stl=stl(xt,s.window = "periodic")
+
+plot.ts(xt, col="red", main="Podaci prije transformacije")
+plot(x.stl,col="red", main="STL prije transofrmacije")
+
+#uočavamo eksponencijalni trend, pa ćemo logaritmirati podatke
+#xt = log(xt)
+#x.stl=stl(xt,s.window = "periodic")
+#plot.ts(xt, col="blue", main="Podaci nakon logaritmiranja")
+#plot(x.stl,col="blue", main="STL nakon logaritmiranja")
+ #vidimo da se varijanca malo stabilizirala
+
+seasonal = x.stl$time.series[,1]
+trend = x.stl$time.series[,2]
+remainder = x.stl$time.series[,3]
+
+x_no_sez = xt - seasonal
+plot.ts(x_no_sez,col="red",main="Desezonalni niz") #uklananje sezonalnosti
+x_no_trend = x_no_sez - trend #uklanjanje trenda
+plot.ts(x_no_trend,col="red",main="Desezonalni niz sa uklonjenim trendom")
+
+t <- 1:153
+model_trend <- lm(xt ~ t+I(t^2)+I(t^3)+log(t))
+summary(model_trend) #ovaj model mi je znacajan
+predictions = predict(model_trend)
+
+plot(t,x_no_sez,type = 'l')
+lines(t,model_trend $fitted.values,col='red') #polinom 6 stupnja je relativno okej fit
+
+remainder = x_no_sez - predictions
+plot(remainder)
+```
+
+
+## c dio
+```{r}
+#prvi način - koristeći auto arima
+
+#fitanje arima modela
+model = auto.arima(remainder, seasonal = FALSE)
+model
+plot(t,remainder,type="l")
+lines(t,model$fitted,col="red")
+#acf(remainder) #ovo ne izgleda dobro? više od 5% iskače
+#library('nortest')
+#lillie.test(remainder)#mala p vrijednost, ostaci nisu normalni - nemamo bijeli šum
+
+
+fc = forecast(model, h = 24)
+fc_s = seasonal[7:30]
+
+new_korona <- read.csv("korona_hrv_studeni.csv",header=FALSE)
+new_t = ((length(korona$V1)+1):(length(korona$V1)+24))
+new_t <- data.frame(t = c(154:(154+23)))
+new_t
+fc_t = predict(model_trend, new_t) # u predict ovo mora ic ko dataframe iz nekog razloga da ga on prepozna
+
+#crtanje predikcija
+plot(c(1:24),new_korona$V1,col="red",type="l")
+lines(c(1:24), fc$mean+fc_s +fc_t)
+lines(c(1:24), fc$lower[,2] + fc_s + fc_t,col="blue")
+lines(c(1:24), fc$upper[,2] + fc_s + fc_t,col="blue")
+
+
+#drugi način - s logaritmiranjem
+xt = ts(korona$V1, frequency = 7)
+xt_new = log(xt) #važno logaritmiranje jer odstupanja nisu jednaka kroz vrijeme - treba nam stabilnost varijance
+x_new_stl =stl(xt_new ,s.window = "periodic")
+plot(x_new_stl)
+#seasonal = x_new_stll$time.series[,1]
+trend = x_new_stl$time.series[,2]
+remainder = x_new_stl$time.series[,3]
+
+x_no_sez = xt_new - seasonal #oduzimamo sezonalnost da ostane samo trend i ostaci
+pacf(x_new_stl$time.series[,3]) 
+acf(x_new_stl$time.series[,3]) #skok nakon 4 stupica - AR(4)
+
+#MA(1) = arima(0,0,1)
+#AR(1) = arima(1,0,0)
+#fitamo MA proces
+
+remainder = x_no_sez - predictions 
+t <- 1:153
+model_trend2 <- lm(xt ~ t+I(t^2)+I(t^3)) #model je sada samo polinom 3 stupnja
+predictions = predict(model_trend2)
+
+#isprobavanje AR modela za fit
+#auto.arima(remainder,seasonal = FALSE) daje MA=5
+#arima(remainder,order = c(1,0,0)) 
+#arima(remainder,order = c(2,0,0)) 
+#arima(remainder,order = c(3,0,0)) 
+#arima(remainder,order = c(4,0,0)) 
+#arima(remainder,order = c(5,0,0)) 
+
+#isprobavanje MA modela za fit
+#arima(remainder,order = c(0,0,1)) 
+#arima(remainder,order = c(0,0,2)) 
+#arima(remainder,order = c(0,0,3)) 
+#arima(remainder,order = c(0,0,4)) 
+#arima(remainder,order = c(0,0,5)) 
+#arima(remainder,order = c(0,0,6)) 
+#6svi aic-kriteriji prilicno visoki - odlucujemo se za MA(5)
+
+#MA_final = auto.arima(remainder, seasonal = FALSE) # za taj model smo se odlucili, reziduale fitamo ARIMA MODELOM
+
+#future <- predict(MA_final , n.ahead = 24)$pred
+#future_se <- predict(MA_final , n.ahead = 24)$se
+
+
+#grafički prikaz procjena
+#fc = forecast(MA_final, h = 24)
+#fc_s = seasonal[7:30]
+
+#new_korona <- read.csv("korona_hrv_studeni.csv",header=FALSE)
+#new_t = ((length(korona$V1)+1):(length(korona$V1)+24))
+#new_t <- data.frame(t = c(154:(154+23)))
+#new_t
+#fc_t = predict(model_trend, new_t)
+
+#plot(c(1:24),new_korona$V1,col="red",type="l",ylim=c(1000,7000))
+#lines(c(1:24), exp(fc$mean)+fc_s +fc_t)
+#lines(c(1:24), exp(fc$lower[,2]) + fc_s + fc_t,col="green")
+#lines(c(1:24), exp(fc$upper[,2]) + fc_s + fc_t,col="green") #jako usko mi ispada
+
+```
+
+
+## Zadatak 7 - podaci o proizvodnji električne opreme
+
+## Uvodni dio 
+```{r}
+electric <- read.table("electric.txt")
+electric = electric$V1
+n=length(electric)
+ts.plot(electric,xlab="mjesec",ylab="proizvodnja",col="red")
+ts.plot(electric[1:36],xlab="mjesec",ylab="proizvodnja",col="red")
+#zumiram taj dio, period bi mogao biti 12 -> radi se o mjesečnim proizvodnjama
+
+#procijena sezonalnost nekom od neimplementiranih metoda
+t <- 1:length(electric)
+electric.ts = ts(electric,start=1, freq=12)
+#  metodo pomičnih zareza: 
+# period je paran -> d=12=2q => q=6
+d = 12
+q = 6
+# vježbe:
+mt=numeric(0)
+for(i in ((q+1):(n-q)))
+  mt[i]=sum(0.5*electric[i-q]+sum(electric[(i-q+1):(i+q-1)])+0.5*electric[i+q])/d
+
+wk=numeric(0)
+for(k in 1:d)
+{
+  if (k<=q) j=1
+  if (k>q) j=0
+  wk[k]=mean(electric[seq(from=k+j*d,to=n-q,by=d)]-mt[seq(from=k+j*d,to=n-q,by=d)])
+}
+
+sk=wk-mean(wk)  
+#procjnea sezonalnu komponentu budući da suma wk-ova nije nužno =0
+
+# procjena sezonalnosti preko stl procedure:
+electric.stl=stl(electric.ts, "periodic")
+plot(electric.stl)
+
+# grafička usporedba  našu sk i one dobivene stl-om:
+sk.stl=((electric.stl$time.series)[,1])[1:12]
+plot(sk,type="o",xlab="mjesec",lwd=1,ylab="sezonalnost",main="procjene sezonalnosti")
+points(sk.stl,type="o",col="red",lty=2,lwd=2)
+#ova procjena je prilicno dobra 
+
+# uklanjanje sezonalnosti
+x_no_sez = electric-sk
+ts.plot(x_no_sez,main="desezonalizirani niz")
+```
+
+
+## a dio
+```{r}
+#### pogodan model za trend -> dodamo ga na graf podataka, analiza ostataka - bijeli šum? Ako ne, predložimo drugi model.
+
+#Kad smo sa ts.plot nacrtali desezonalizirani niz, uočila sam puno vrhova -> treba mi neki model polinom većeg stupnja -> odlučujem da je stupanj 13 dovoljan. Zato predlažemo model:
+model=lm(x_no_sez~t+I(t^2)+I(t^3)+I(t^4)+I(t^5)+I(t^6)+I(t^7)+I(t^8)+I(t^9)+I(t^10)+I(t^11)+I(t^12)+I(t^13))
+summary(model)
+plot(x_no_sez,xlab="mjesec",ylab="proizvodnja",main="desezonalizirani niz",type="l")
+lines(t,model$fit,col="red")
+
+ostaci=x_no_sez-model$fit  # želimo ostatke, pa mičemo trend 
+ts.plot(ostaci)
+adf.test(ostaci)  # je li niz stacionaran
+acf(model$res)
+# iz dobivenog grafa vidimo da puno stupića izlazi izvan 95% pouzdane pruge
+# korelirani su, nemam bijeli šum
+
+#koristimo  arma_AIC s vježbi -ona za dani n nalazi najbolji ARMA(p,q) model po svim kombinacijama
+#koje su manje od n:, slicno kao auto.arima
+arma_AIC=function(x,n)
+{
+  a=0
+  b=0
+  p=0
+  q=0
+  t=arima(x,order=c(0,0,0),include.mean=FALSE)
+  ai=t$aic
+  for (p in 0:n)
+    for (q in 0:n)
+      if ((p+q)<=n)
+      {
+        c=arima(x,order=c(p,0,q),include.mean=FALSE)
+        aic=c$aic
+        if (aic<ai) { ai=aic; a=p; b=q; }
+      }
+  print(a)
+  print(b)
+  print(ai)
+}
+
+arma_AIC(ostaci,5)  
+arma_AIC(ostaci,6)  
+arma_AIC(ostaci,7)  
+#najbolji model za modeliranje ostataka je, čini se, ARMA(4,1)
+
+# provjera dal se sad radi o bijelom šumu:
+model_ostaci=arima(ostaci,order=c(4,0,1))
+ostaci.ostataka=model_ostaci$residuals
+acf(ostaci.ostataka)
+# samo jedan stupić izlazi izvan pruge => acf sugerira da se radi o bijelom šumu (ostaci su nekorelirani)
+
+# još provjeravamo normalnost:
+lillie.test(ostaci.ostataka) #ne odbacujemo H_0,ostaci normalni -> uistinu se radi o bijelom šumu
+```
+
+
+## b dio
+```{r}
+# Analiza podataka (bez procjene trenda) i  pogodan ARIMA model za njih.
+
+# promatramo desezonalizirani niz:
+adf.test(x_no_sez)  # testira stacionarnost niza
+#velika p-vrijednost => ne možemo odbaciti H0 koja pretpostavlja da niz nije stacionaran
+
+dif.x_no_sez=diff(x_no_sez,differences=1)
+adf.test(dif.x_no_sez)
+# => p-vrijednost ispada 0.01447 => odbacujemo H0 u korist H1
+# sada imamo stacionarnost -> diferenciran niz desezonaliziranog originalnog niza je stacionaran
+
+arma_AIC(dif.x_no_sez,6)
+#najbolji je MA(6) proces
+
+#originalan proces (desezonalizirani niz) je ARIMA(0,1,6) proces
+
+#### Ispitaj podobnost dobivenog modela u oba slučaja.
+# goodness of fit:
+# procjena koeficijenata modela:
+arma_ostaci=arima(ostaci,order=c(4,0,1))
+arma_ostaci$coef
+#          ar1          ar2          ar3          ar4          ma1    intercept 
+#  1.291446036 -0.149649819  0.154479950 -0.367301621 -0.999999353  0.003668382 
+model_arima=arima(x_no_sez,order=c(0,1,6))
+model_arima$coef
+#         ma1         ma2         ma3         ma4         ma5         ma6 
+# -0.40986014  0.04824358  0.31155928 -0.13044438  0.12728051  0.21889530
+#  vidimo da su svi dobiveni koeficijenti značajno različiti od 0 => to je u redu
+
+# provjera reziduala: 
+# za proces iz a) smo već provjerili reziduale i dobili da su oni iz klase bijelog šuma
+# provjeravamo za model iz b):
+acf(model_arima$residuals)
+# => iz dobivenog grafa vidimo da su svi stupići osim jednog unutar 95% pouzdane pruge
+# => reziduali dolaze iz klase bijelog šuma
+
+# provjera stacionarnosti
+adf.test(dif.x_no_sez)
+# p-vrijednost ispada 0.01447 => odbacujemoH0 => niz zbilja jest stacionaran
+adf.test(ostaci)
+# => p-vrijednost ispada 0.01 => odbacujemoH0 => niz zbilja jest stacionaran
+
+
+```
+
+##procjena proizvodnje
+```{r}
+# predviđamo proizvodnju za idućih 10 mjeseci - PRVI SLUČAJ - sa trendom:
+novi_n=10
+novi_t=(n+1):(n+novi_n)
+novi_trend=model$coef[1]+model$coef[2]*novi_t+model$coef[3]*novi_t^2+model$coef[4]*novi_t^3+model$coef[5]*novi_t^4+model$coef[6]*novi_t^5+model$coef[7]*novi_t^6+model$coef[8]*novi_t^7+model$coef[9]*novi_t^8
+
+novi_ostaci=predict(arma_ostaci,n.ahead=10)
+proc.ostaci=novi_ostaci$pred
+nova_sezona=sk.stl[3:12]
+
+novi_podaci=novi_trend+nova_sezona+proc.ostaci
+stvarni_podaci=read.table("electric_new.txt",header=FALSE)
+
+# grafička usporedba:
+error=novi_ostaci$se
+donja=novi_podaci-2*error
+gornja=novi_podaci+2*error
+plot(novi_t,as.numeric(novi_podaci),xlab="mjeseci",ylab="procjene",ylim=c(0,200))
+lines(novi_t,as.numeric(donja),col="red")
+lines(novi_t,as.numeric(gornja),col="red")
+points(novi_t,stvarni_podaci[,1],col="blue")
+
+
+
+# predviđamo proizvodnju za idućih 10 mjeseci - 
+#DRUGI SLUČAJ (dakle, provodimo isti postupak ko i gore, ali za drugi model bez trenda - kojeg smo procijenili s ARIMA):
+novi_ostaci_arima=predict(model_arima, n.ahead=10)
+proc.ostaci_arima=novi_ostaci_arima$pred
+nova_sezona_arima=sk.stl[3:12]
+
+novi_podaci_arima=nova_sezona_arima+proc.ostaci_arima
+
+error_arima=novi_ostaci_arima$se
+donja_arima=novi_podaci_arima-2*error_arima
+gornja_arima=novi_podaci_arima+2*error_arima
+plot(novi_t,as.numeric(novi_podaci_arima),xlab="mjeseci",ylab="procjene",ylim=c(50,150))
+lines(novi_t,as.numeric(donja_arima),col="red")
+lines(novi_t,as.numeric(gornja_arima),col="red")
+points(novi_t,stvarni_podaci[,1],col="blue")
+
+
+
+
+# usporedba obje procjene:
+# Prvi model ne procjenjuje podatke tako dobro kao drugi (stvarni podaci su ispod procijenjenih i izvan
+# 95% pouzdane pruge). ARIMA model pak dobro procjenjuje podatke (većina ih leži unutar pruge).
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
