@@ -63,9 +63,16 @@ cor(auto$dob,auto$iskustvo,method="pearson") #0.9969117
 #koeficijenti blizu 1, jako zavisne, nebi smjele ići zajedno u model!
 
 ```
+
 ## d dio
 ```{r}
 #ispitivanje ovisnosti iznosa štete i dobi - ovisi li to o prijavi štete? 
+#naknadno nakon testica
+model__ = lm(auto$iznos[auto$prijava == 0] ~ auto$dob[auto$prijava == 0])
+plot(auto$dob[auto$prijava == 0], model__$fitted.values,type="l")
+model__2 = lm(auto$iznos[auto$prijava == 1] ~ auto$dob[auto$prijava == 1])
+plot(auto$dob[auto$prijava == 1], model__2$fitted.values,type="l",col="red")
+#ova dva pravca su ista
 
 model1 <- lm(auto$iznos ~ auto$dob)
 summary(model1) 
@@ -206,7 +213,7 @@ plot(remainder)
 ## c dio
 ```{r}
 #prvi način - koristeći auto arima
-
+library(forecast)
 #fitanje arima modela
 model = auto.arima(remainder, seasonal = FALSE)
 model
@@ -398,6 +405,7 @@ acf(ostaci.ostataka)
 # samo jedan stupić izlazi izvan pruge => acf sugerira da se radi o bijelom šumu (ostaci su nekorelirani)
 
 # još provjeravamo normalnost:
+library(normtest)
 lillie.test(ostaci.ostataka) #ne odbacujemo H_0,ostaci normalni -> uistinu se radi o bijelom šumu
 ```
 

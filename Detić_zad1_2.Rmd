@@ -45,8 +45,8 @@ ks.test(beta, "pnorm",parab[1],parab[2]) #ovo ispada normalno
 #takvi rezultati zato što -> beta ima konačan prvi moment, a cauchy nema 
 
 #testiranje srednjekvadratnog odstupanja - koristimo hi-kvadrat test
-#H_0 -> sigma_0 = 0.5
-#H_1 -> sigma_0 > 0.5
+#H_0 -> Var = 0.5
+#H_1 -> Var > 0.5
 hi_kvadrat = ((50-1)/(0.5)**2 ) * var(beta) #testna statistika
 pvalue = 1 - pchisq(hi_kvadrat, 50-1) #veliki p, pa ne odbacujemo H_0
 pvalue
@@ -73,6 +73,7 @@ ks.test(Y, "pbeta",ebeta(Y, method="mle")$parameters[1],ebeta(Y, method="mle")$p
 #očekivanje i varijanca od Y
 mean(Y)
 var(Y)
+Y
 
 #transformacija uzorka
 Z = (3*Y) /(1-Y)

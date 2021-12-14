@@ -40,7 +40,7 @@ lines(matrica$upr, col="red")
 ## c dio
 ```{r}
 #testiranje da je koeficijent uz kamatna stopu 100
-model2 = lm(dionica$Cijena ~dionica$BDP+dionica$ZAP+ offset(100*dionica$KS)+dionica$MJ)
+model2 = lm(dionica$Cijena ~dionica$BDP+dionica$ZAP+ offset(100*dionica$KS)+dionica$MJ) 
 anova(model2,model)
 #velika p vrijednost -> jednostavniji model(model2) je "dovoljan"
 #ne odbacujemo nul hipotezu, znaci da je ovaj koeficijent 100
@@ -115,6 +115,7 @@ dwtest(model)
 #null hipoteza je da ne postoji korelacija
 #velik p vrijednost, ne odbacujemo null hipotezu 
 #možemo pretpo da na svakoj stan raz značajnosti nisu korelirani
+#nekoreliranost povlaci nezavisnost
 
 #3. homogenost greška
 library(tseries)
@@ -137,12 +138,12 @@ x <- prodaja$dan
 model = lm(y ~ x)
 future <- data.frame(x = c(1096:1102))
 
-
 plot(log(predict(model, newdata = future, interval = 'confidence'))[,1], xlim=c(0,10), ylim=c(6.7,6.8), ylab="kolicina prodaje")
 lines(log(predict(model, newdata = future, interval = 'confidence')[,2]), col="red") 
 lines(log(predict(model, newdata = future, interval = 'confidence')[,3]), col="red")
 
-
+predict(model, newdata = future, interval = 'confidence',level=0.9)
+predict(model, newdata = future, interval = 'confidence')
 ```
 
 
